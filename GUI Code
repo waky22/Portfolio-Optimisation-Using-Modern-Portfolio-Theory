@@ -1,0 +1,146 @@
+#GUI CODE USING TKINTER
+import tkinter as tk
+from tkinter import ttk
+import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import yfinance as yf
+
+def calculate_combined():
+    # Retrieve user inputs for both goals
+    try:
+        financial_goal1 = float(financial_goal_entry1.get())
+        time_horizon1 = int(time_horizon_entry1.get())
+        financial_goal2 = float(financial_goal_entry2.get())
+        time_horizon2 = int(time_horizon_entry2.get())
+    except ValueError:
+        return
+
+    try:
+        monthly_income = float(monthly_income_entry.get())
+        monthly_expenses = float(monthly_expenses_entry.get())
+        current_investments = float(current_investments_entry.get())
+    except ValueError:
+        return
+
+    # Calculate total savings for both goals
+    total_savings1 = (monthly_income - monthly_expenses) * 12 * time_horizon1 + current_investments
+    total_savings2 = (monthly_income - monthly_expenses) * 12 * time_horizon2 + current_investments
+    total_savings_combined = total_savings1 + total_savings2
+
+    # Retrieve historical returns for debt and equity assets
+    debt_symbol = "AGG"  # Example ticker symbol for bond ETF (iShares Core U.S. Aggregate Bond ETF)
+    large_cap_symbol = "^GSPC"  # S&P 500 index (large cap)
+    mid_cap_symbol = "^MID"      # S&P MidCap 400 index (mid cap)
+    small_cap_symbol = "^RUT"    # Russell 2000 index (small cap)
+
+    # Download historical data
+    start_date = '2010-01-01'  # Start date for historical data
+    end_date = '2024-01-01'    # End date for historical data
+    debt_data = yf.download(debt_symbol, start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
+    large_cap_data = yf.download(large_cap_symbol, start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
+    mid_cap_data = yf.download(mid_cap_symbol, start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
+    small_cap_data = yf.download(small_cap_symbol, start=start_date, end=end_date)['Adj Close'].pct_change().dropna()
+
+    # Calculate expected returns for debt and equity
+    debt_return = debt_data.mean() * 252
+    large_cap_return = large_cap_data.mean() * 252
+    mid_cap_return = mid_cap_data.mean() * 252
+    small_cap_return = small_cap_data.mean() * 252
+
+    # Calculate weights based on user goals
+    debt_allocation = (min(total_savings1, financial_goal1) + min(total_savings2, financial_goal2)) / total_savings_combined
+    equity_allocation = 1 - debt_allocation
+
+    # Calculate total equity allocation
+    total_equity_allocation = large_cap_return + mid_cap_return + small_cap_return
+
+    # Calculate equity allocations based on historical returns
+    large_cap_allocation = (large_cap_return * equity_allocation / total_equity_allocation) * 0.5
+    mid_cap_allocation = (mid_cap_return * equity_allocation / total_equity_allocation) * 0.5
+    small_cap_allocation = (small_cap_return * equity_allocation / total_equity_allocation) * 0.5
+
+    # Adjust allocations to ensure they add up to 100%
+    total_allocation = debt_allocation + large_cap_allocation + mid_cap_allocation + small_cap_allocation
+    debt_allocation /= total_allocation
+    large_cap_allocation /= total_allocation
+    mid_cap_allocation /= total_allocation
+    small_cap_allocation /= total_allocation
+
+    # Display recommended allocation
+    allocation_text = f"Recommended Allocation for Both Goals Combined:\n"
+    allocation_text += f"Debt: {debt_allocation * 100:.2f}%\n"
+    allocation_text += f"Large Cap: {large_cap_allocation * 100:.2f}%\n"
+    allocation_text += f"Mid Cap: {mid_cap_allocation * 100:.2f}%\n"
+    allocation_text += f"Small Cap: {small_cap_allocation * 100:.2f}%\n"
+
+    allocation_textbox.config(state=tk.NORMAL)
+    allocation_textbox.delete("1.0", tk.END)
+    allocation_textbox.insert(tk.END, allocation_text)
+    allocation_textbox.config(state=tk.DISABLED)
+
+    # Create a pie chart to display the allocation
+    labels = ['Debt', 'Large Cap', 'Mid Cap', 'Small Cap']
+    sizes = [debt_allocation, large_cap_allocation, mid_cap_allocation, small_cap_allocation]
+    colors = ['#ff9999', '#66b3ff', '#99ff99', '#ffcc99']
+    fig, ax = plt.subplots()
+    ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+    ax.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+    ax.set_title("Combined Allocation for Both Goals")
+
+    # Embed the pie chart in the GUI
+    for widget in plot_frame.winfo_children():
+        widget.destroy()  # Clear previous plot
+    canvas = FigureCanvasTkAgg(fig, master=plot_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=1)
+
+# Create main window
+root = tk.Tk()
+root.title("Financial Planning")
+
+# Create input fields for Goal 1
+tk.Label(root, text="Financial Goal 1:").grid(row=0, column=0, sticky="w")
+financial_goal_entry1 = tk.Entry(root)
+financial_goal_entry1.grid(row=0, column=1)
+
+tk.Label(root, text="Time Horizon (years) Goal 1:").grid(row=1, column=0, sticky="w")
+time_horizon_entry1 = tk.Entry(root)
+time_horizon_entry1.grid(row=1, column=1)
+
+# Create input fields for Goal 2
+tk.Label(root, text="Financial Goal 2:").grid(row=2, column=0, sticky="w")
+financial_goal_entry2 = tk.Entry(root)
+financial_goal_entry2.grid(row=2, column=1)
+
+tk.Label(root, text="Time Horizon (years) Goal 2:").grid(row=3, column=0, sticky="w")
+time_horizon_entry2 = tk.Entry(root)
+time_horizon_entry2.grid(row=3, column=1)
+
+tk.Label(root, text="Monthly Income:").grid(row=4, column=0, sticky="w")
+monthly_income_entry = tk.Entry(root)
+monthly_income_entry.grid(row=4, column=1)
+
+tk.Label(root, text="Monthly Expenses:").grid(row=5, column=0, sticky="w")
+monthly_expenses_entry = tk.Entry(root)
+monthly_expenses_entry.grid(row=5, column=1)
+
+tk.Label(root, text="Amount Already Invested:").grid(row=6, column=0, sticky="w")
+current_investments_entry = tk.Entry(root)
+current_investments_entry.grid(row=6, column=1)
+
+# Create a frame for the plot
+plot_frame = ttk.Frame(root)
+plot_frame.grid(row=7, columnspan=2, pady=10)
+
+# Create a text box to display recommended allocation for each goal
+allocation_textbox = tk.Text(root, height=5, width=50)
+allocation_textbox.grid(row=8, columnspan=2, pady=10)
+allocation_textbox.config(state=tk.DISABLED)
+
+# Calculate button for combined goals
+calculate_button_combined = tk.Button(root, text="Calculate Combined Allocation", command=calculate_combined)
+calculate_button_combined.grid(row=9, columnspan=2, pady=10)
+
+# Start the GUI
+root.mainloop()
